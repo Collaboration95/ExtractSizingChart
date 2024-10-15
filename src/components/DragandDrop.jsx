@@ -123,9 +123,8 @@ function processTextractData(blocks) {
   };
 }
 
-
-
 const DragAndDropImage = () => {
+  const [tableInfo,setTableInfo] = useState(null);
   const [imagePreviews, setImagePreviews] = useState([]);
   const [selectedFiles, setSelectedFiles] = useState(null);
   const [tableData, setTableData] = useState(null);
@@ -174,7 +173,9 @@ const DragAndDropImage = () => {
       })
       .then((data) => {
         addNotification("Info Received from cloud", "success");
+        console.log("Data received from cloud is ", data);
         let allTablesData = data.results.map((result) => processTextractData(result.tableData.Blocks));
+        console.log("allTablesData is ", allTablesData);
         // console.log("allTablesData is ", allTablesData);
 
         // You will now have both tables and titles
@@ -183,6 +184,7 @@ const DragAndDropImage = () => {
 
         setTableData(flattenedTablesData);
         setTitlesData(allTitlesData);
+        setTableInfo(allTablesData)
 
       })
       .catch((error) => {
@@ -224,7 +226,7 @@ const DragAndDropImage = () => {
       {tableData && (
         <div className="my-4 w-full max-w-lg">
           <h2>Extracted Table Data:</h2>
-          <TableComponent tableData={tableData} titlesData={titlesData} />{" "}
+          <TableComponent tableData={tableData} tableInfo={tableInfo} titlesData={titlesData} />{" "}
           {/* Pass table data as prop */}
         </div>
       )}
