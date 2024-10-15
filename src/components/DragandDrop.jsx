@@ -7,8 +7,18 @@ function processTextractData(blocks) {
   // Ensure blocks is an array
   if (!Array.isArray(blocks)) {
     console.error("Input is not an array");
-    return [];
+    return { tables: [], titles: [] };
   }
+  // console.log("blocks is ", blocks)
+
+  // creating a map of words to reference with TableTitle ID later to get text 
+  const wordMap = blocks
+    .filter((block) => block.BlockType === "WORD")
+    .reduce((acc, block) => {
+      acc[block.Id] = block.Text;
+      return acc;
+    }, {});
+  // console.log("wordMap is ", wordMap)
 
   // Filter out table blocks
   const tableBlocks = blocks.filter(
@@ -18,6 +28,11 @@ function processTextractData(blocks) {
       block.EntityTypes.includes("STRUCTURED_TABLE"),
   );
 
+  // Filter for TABLE_TITLE blocks (assuming these blocks exist in the data)
+  const titleBlocks = blocks.filter(
+    (block) => block.BlockType === "TABLE_TITLE"
+  );
+  
   // Process each table
   const tables = tableBlocks.map((tableBlock) => {
     const tableId = tableBlock.Id;
@@ -53,15 +68,8 @@ function processTextractData(blocks) {
     const cols = Math.max(...colIndices);
 
     // Check if rows or cols are valid
-    if (
-      !Number.isFinite(rows) ||
-      !Number.isFinite(cols) ||
-      rows <= 0 ||
-      cols <= 0
-    ) {
-      console.warn(
-        `Invalid dimensions for table ${tableId}: rows=${rows}, cols=${cols}`,
-      );
+    if (!Number.isFinite(rows) || !Number.isFinite(cols) || rows <= 0 || cols <= 0) {
+      console.warn(`Invalid dimensions for table ${tableId}: rows=${rows}, cols=${cols}`);
       return null;
     }
 
@@ -75,15 +83,8 @@ function processTextractData(blocks) {
       const rowIndex = cell.RowIndex - 1;
       const colIndex = cell.ColumnIndex - 1;
 
-      if (
-        rowIndex < 0 ||
-        rowIndex >= rows ||
-        colIndex < 0 ||
-        colIndex >= cols
-      ) {
-        console.warn(
-          `Invalid cell indices: row=${rowIndex}, col=${colIndex} for table ${tableId}`,
-        );
+      if (rowIndex < 0 || rowIndex >= rows || colIndex < 0 || colIndex >= cols) {
+        console.warn(`Invalid cell indices: row=${rowIndex}, col=${colIndex} for table ${tableId}`);
         return;
       }
 
@@ -109,15 +110,26 @@ function processTextractData(blocks) {
       data: tableData,
     };
   });
+ 
+  const titles = titleBlocks.map((titleBlock) => {
+    const titleChildrenIds = titleBlock.Relationships.flatMap((rel) => rel.Ids);
+    return titleChildrenIds.map((id) => wordMap[id] || "").join(" ");
+  });
 
   // Filter out null values (tables that couldn't be processed)
-  return tables.filter((table) => table !== null);
+  return {
+    tables: tables.filter((table) => table !== null),
+    titles,  // Return table titles
+  };
 }
+
+
 
 const DragAndDropImage = () => {
   const [imagePreviews, setImagePreviews] = useState([]);
   const [selectedFiles, setSelectedFiles] = useState(null);
   const [tableData, setTableData] = useState(null);
+  const [titlesData,setTitlesData] = useState(null);
   const { addNotification } = useNotification();
 
   const handleDrop = (event) => {
@@ -162,16 +174,15 @@ const DragAndDropImage = () => {
       })
       .then((data) => {
         addNotification("Info Received from cloud", "success");
-
-        let allTablesData = data.results.map((result) =>
-          processTextractData(result.tableData.Blocks),
-        );
+        let allTablesData = data.results.map((result) => processTextractData(result.tableData.Blocks));
         // console.log("allTablesData is ", allTablesData);
 
-        // Flatten the array of arrays into a single array of tables
-        let flattenedTablesData = allTablesData.flat();
-        // console.log("flattenedTablesData is ", flattenedTablesData);
+        // You will now have both tables and titles
+        let flattenedTablesData = allTablesData.map(data => data.tables).flat();
+        let allTitlesData = allTablesData.map(data => data.titles).flat();
+
         setTableData(flattenedTablesData);
+        setTitlesData(allTitlesData);
 
       })
       .catch((error) => {
@@ -213,7 +224,7 @@ const DragAndDropImage = () => {
       {tableData && (
         <div className="my-4 w-full max-w-lg">
           <h2>Extracted Table Data:</h2>
-          <TableComponent tableData={tableData} />{" "}
+          <TableComponent tableData={tableData} titlesData={titlesData} />{" "}
           {/* Pass table data as prop */}
         </div>
       )}
