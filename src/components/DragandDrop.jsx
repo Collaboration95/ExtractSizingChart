@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Card, CardContent, Typography, Button } from "@mui/material";
 import TableComponent from "./TableComponent";
 import { useNotification } from '../context/NotificationContext';
+import { uploadImages } from "../controller/imageController";
 
 function processTextractData(blocks) {
   // Ensure blocks is an array
@@ -147,56 +148,80 @@ const DragAndDropImage = () => {
     event.preventDefault();
   };
 
+  //   if (!selectedFiles) return;
+
+  //   const formData = new FormData();
+
+  //   // Append all selected files to FormData
+  //   selectedFiles.forEach((file) => {
+  //     formData.append("images", file); // 'images' is the key for sending multiple files
+  //   });
+
+  //   fetch("api/upload/", {
+  //     method: "POST",
+  //     body: formData, // FormData will contain the images
+  //   })
+  //     .then(async (response) => {
+  //       if (response.ok) {
+  //         console.log("Images uploaded successfully");
+  //         addNotification("Images uploaded successfully", "success"); 
+  //         return response.json();
+  //       } else {
+  //         console.error("Image upload failed");
+  //         throw new Error("Image upload failed");
+  //       }
+  //     })
+  //     .then((data) => {
+  //       addNotification("Info Received from cloud", "success");
+  //       console.log("Data received from cloud is ", data);
+  //       let allTablesData = data.results.map((result) => processTextractData(result.tableData.Blocks));
+  //       console.log("allTablesData is ", allTablesData);
+  //       // console.log("allTablesData is ", allTablesData);
+
+  //       // You will now have both tables and titles
+  //       let flattenedTablesData = allTablesData.map(data => data.tables).flat();
+  //       let allTitlesData = allTablesData.map(data => data.titles).flat();
+
+  //       setTableData(flattenedTablesData);
+  //       setTitlesData(allTitlesData);
+  //       setTableInfo(allTablesData)
+
+  //     })
+  //     .catch((error) => {
+  //       console.error("Error uploading images:", error);
+  //       addNotification("Error uploading images", "error");
+  //     });
+  // };
   const handleUpload = async () => {
     if (!selectedFiles) return;
 
-    const formData = new FormData();
+    try {
+      const data = await uploadImages(selectedFiles, addNotification);
 
-    // Append all selected files to FormData
-    selectedFiles.forEach((file) => {
-      formData.append("images", file); // 'images' is the key for sending multiple files
-    });
+      addNotification("Info Received from cloud", "success");
+      console.log("Data received from cloud is ", data);
 
-    fetch("api/upload/", {
-      method: "POST",
-      body: formData, // FormData will contain the images
-    })
-      .then(async (response) => {
-        if (response.ok) {
-          console.log("Images uploaded successfully");
-          addNotification("Images uploaded successfully", "success"); 
-          return response.json();
-        } else {
-          console.error("Image upload failed");
-          throw new Error("Image upload failed");
-        }
-      })
-      .then((data) => {
-        addNotification("Info Received from cloud", "success");
-        console.log("Data received from cloud is ", data);
-        let allTablesData = data.results.map((result) => processTextractData(result.tableData.Blocks));
-        console.log("allTablesData is ", allTablesData);
-        // console.log("allTablesData is ", allTablesData);
+      const allTablesData = data.results.map((result) =>
+        processTextractData(result.tableData.Blocks)
+      );
+      console.log("allTablesData is ", allTablesData);
 
-        // You will now have both tables and titles
-        let flattenedTablesData = allTablesData.map(data => data.tables).flat();
-        let allTitlesData = allTablesData.map(data => data.titles).flat();
+      let flattenedTablesData = allTablesData.map((data) => data.tables).flat();
+      let allTitlesData = allTablesData.map((data) => data.titles).flat();
 
-        setTableData(flattenedTablesData);
-        setTitlesData(allTitlesData);
-        setTableInfo(allTablesData)
-
-      })
-      .catch((error) => {
-        console.error("Error uploading images:", error);
-        addNotification("Error uploading images", "error");
-      });
+      setTableData(flattenedTablesData);
+      setTitlesData(allTitlesData);
+      setTableInfo(allTablesData);
+    } catch (error) {
+      console.error("Error processing images:", error);
+    }
   };
 
   return (
     <div className="flex flex-col items-center">
       <div
-        className="w-full max-w-lg p-6 my-4 border-2 border-dashed border-gray-300"
+        className="w-full h-32 text-align-center flex items-center justify-center
+         max-w-lg p-6 my-4 border-2 border-dashed border-gray-300 hover:border-3 hover:border-double"
         onDrop={handleDrop}
         onDragOver={handleDragOver}
       >
