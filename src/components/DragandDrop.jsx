@@ -4,36 +4,151 @@ import TableComponent from "./TableComponent";
 import { useNotification } from '../context/NotificationContext';
 import { uploadImages } from "../controller/imageController";
 
+// function processTextractData(blocks) {
+//   // Ensure blocks is an array
+//   if (!Array.isArray(blocks)) {
+//     console.error("Input is not an array");
+//     return { tables: [], titles: [] };
+//   }
+//   // console.log("blocks is ", blocks)
+
+//   // creating a map of words to reference with TableTitle ID later to get text 
+//   const wordMap = blocks
+//     .filter((block) => block.BlockType === "WORD")
+//     .reduce((acc, block) => {
+//       acc[block.Id] = block.Text;
+//       return acc;
+//     }, {});
+//   // console.log("wordMap is ", wordMap)
+
+//   // Filter out table blocks
+//   const tableBlocks = blocks.filter(
+//     (block) =>
+//       block.BlockType === "TABLE" &&
+//       block.EntityTypes &&
+//       block.EntityTypes.includes("STRUCTURED_TABLE"),
+//   );
+
+//   // Filter for TABLE_TITLE blocks (assuming these blocks exist in the data)
+//   const titleBlocks = blocks.filter(
+//     (block) => block.BlockType === "TABLE_TITLE"
+//   );
+  
+//   // Process each table
+//   const tables = tableBlocks.map((tableBlock) => {
+//     const tableId = tableBlock.Id;
+
+//     // Collect all child IDs for the table (these should be CELL block IDs)
+//     const childIds = tableBlock.Relationships.flatMap((rel) => rel.Ids);
+
+//     // Filter for CELL blocks that are children of this table
+//     const tableCells = blocks.filter(
+//       (block) => block.BlockType === "CELL" && childIds.includes(block.Id),
+//     );
+
+//     // Check if tableCells is empty
+//     if (tableCells.length === 0) {
+//       console.warn(`No cells found for table ${tableId}`);
+//       return null;
+//     }
+
+//     // Determine table dimensions
+//     const rowIndices = tableCells
+//       .map((cell) => cell.RowIndex)
+//       .filter((index) => typeof index === "number");
+//     const colIndices = tableCells
+//       .map((cell) => cell.ColumnIndex)
+//       .filter((index) => typeof index === "number");
+
+//     if (rowIndices.length === 0 || colIndices.length === 0) {
+//       console.warn(`Invalid row or column indices for table ${tableId}`);
+//       return null;
+//     }
+
+//     const rows = Math.max(...rowIndices);
+//     const cols = Math.max(...colIndices);
+
+//     // Check if rows or cols are valid
+//     if (!Number.isFinite(rows) || !Number.isFinite(cols) || rows <= 0 || cols <= 0) {
+//       console.warn(`Invalid dimensions for table ${tableId}: rows=${rows}, cols=${cols}`);
+//       return null;
+//     }
+
+//     // Initialize 2D array for table data
+//     const tableData = Array(rows)
+//       .fill()
+//       .map(() => Array(cols).fill(""));
+
+//     // Fill in table data
+//     tableCells.forEach((cell) => {
+//       const rowIndex = cell.RowIndex - 1;
+//       const colIndex = cell.ColumnIndex - 1;
+
+//       if (rowIndex < 0 || rowIndex >= rows || colIndex < 0 || colIndex >= cols) {
+//         console.warn(`Invalid cell indices: row=${rowIndex}, col=${colIndex} for table ${tableId}`);
+//         return;
+//       }
+
+//       // Get cell content
+//       const cellContent = blocks
+//         .filter(
+//           (block) =>
+//             block.BlockType === "WORD" &&
+//             cell.Relationships &&
+//             cell.Relationships.some(
+//               (rel) => rel.Type === "CHILD" && rel.Ids.includes(block.Id),
+//             ),
+//         )
+//         .map((word) => word.Text)
+//         .join(" ");
+
+//       tableData[rowIndex][colIndex] = cellContent;
+//     });
+
+//     return {
+//       rows,
+//       cols,
+//       data: tableData,
+//     };
+//   });
+ 
+//   const titles = titleBlocks.map((titleBlock) => {
+//     const titleChildrenIds = titleBlock.Relationships.flatMap((rel) => rel.Ids);
+//     return titleChildrenIds.map((id) => wordMap[id] || "").join(" ");
+//   });
+
+//   // Filter out null values (tables that couldn't be processed)
+//   return {
+//     tables: tables.filter((table) => table !== null),
+//     titles,  // Return table titles
+//   };
+// }
 function processTextractData(blocks) {
   // Ensure blocks is an array
   if (!Array.isArray(blocks)) {
     console.error("Input is not an array");
     return { tables: [], titles: [] };
   }
-  // console.log("blocks is ", blocks)
 
-  // creating a map of words to reference with TableTitle ID later to get text 
+  // Map WORD blocks for easy lookup
   const wordMap = blocks
     .filter((block) => block.BlockType === "WORD")
     .reduce((acc, block) => {
       acc[block.Id] = block.Text;
       return acc;
     }, {});
-  // console.log("wordMap is ", wordMap)
 
   // Filter out table blocks
   const tableBlocks = blocks.filter(
     (block) =>
       block.BlockType === "TABLE" &&
       block.EntityTypes &&
-      block.EntityTypes.includes("STRUCTURED_TABLE"),
+      block.EntityTypes.includes("STRUCTURED_TABLE")
   );
 
   // Filter for TABLE_TITLE blocks (assuming these blocks exist in the data)
-  const titleBlocks = blocks.filter(
-    (block) => block.BlockType === "TABLE_TITLE"
-  );
-  
+  const titleBlocks = blocks.filter((block) => block.BlockType === "TABLE_TITLE");
+
   // Process each table
   const tables = tableBlocks.map((tableBlock) => {
     const tableId = tableBlock.Id;
@@ -43,7 +158,7 @@ function processTextractData(blocks) {
 
     // Filter for CELL blocks that are children of this table
     const tableCells = blocks.filter(
-      (block) => block.BlockType === "CELL" && childIds.includes(block.Id),
+      (block) => block.BlockType === "CELL" && childIds.includes(block.Id)
     );
 
     // Check if tableCells is empty
@@ -65,27 +180,28 @@ function processTextractData(blocks) {
       return null;
     }
 
-    const rows = Math.max(...rowIndices);
-    const cols = Math.max(...colIndices);
-
-    // Check if rows or cols are valid
-    if (!Number.isFinite(rows) || !Number.isFinite(cols) || rows <= 0 || cols <= 0) {
-      console.warn(`Invalid dimensions for table ${tableId}: rows=${rows}, cols=${cols}`);
-      return null;
-    }
+    let rows = Math.max(...rowIndices);
+    let cols = Math.max(...colIndices);
 
     // Initialize 2D array for table data
-    const tableData = Array(rows)
-      .fill()
-      .map(() => Array(cols).fill(""));
+    let tableData = Array.from({ length: rows }, () =>
+      Array(cols).fill("")
+    );
 
     // Fill in table data
     tableCells.forEach((cell) => {
       const rowIndex = cell.RowIndex - 1;
       const colIndex = cell.ColumnIndex - 1;
 
-      if (rowIndex < 0 || rowIndex >= rows || colIndex < 0 || colIndex >= cols) {
-        console.warn(`Invalid cell indices: row=${rowIndex}, col=${colIndex} for table ${tableId}`);
+      if (
+        rowIndex < 0 ||
+        rowIndex >= rows ||
+        colIndex < 0 ||
+        colIndex >= cols
+      ) {
+        console.warn(
+          `Invalid cell indices: row=${rowIndex}, col=${colIndex} for table ${tableId}`
+        );
         return;
       }
 
@@ -96,8 +212,8 @@ function processTextractData(blocks) {
             block.BlockType === "WORD" &&
             cell.Relationships &&
             cell.Relationships.some(
-              (rel) => rel.Type === "CHILD" && rel.Ids.includes(block.Id),
-            ),
+              (rel) => rel.Type === "CHILD" && rel.Ids.includes(block.Id)
+            )
         )
         .map((word) => word.Text)
         .join(" ");
@@ -105,13 +221,56 @@ function processTextractData(blocks) {
       tableData[rowIndex][colIndex] = cellContent;
     });
 
+    // --- Orientation Detection and Adjustment ---
+    // Define functions to check for size and measurement labels
+    const isSizeLabel = (s) => {
+      const sizeLabels = [
+        "XS", "S", "SM", "M", "MD", "L", "LG", "XL", "2XL", "3XL", "4XL",
+        "5XL", "6XL", "7XL", "8XL", "9XL", "10XL", "XXS", "XXL", "XXXL",
+        "XXXXL", "XXXXXL", "ONE SIZE", "FREE SIZE", "0", "2", "4", "6",
+        "8", "10", "12", "14", "16", "18",
+      ];
+      return sizeLabels.includes(s.trim().toUpperCase());
+    };
+
+    const isMeasurementLabel = (s) => {
+      const measurementLabels = [
+        "CHEST", "WAIST", "HIP", "SHOULDER", "SLEEVE", "LENGTH",
+        "INSEAM", "ARM", "NECK", "BUST", "THIGH", "KNEE", "CALF",
+        "ANKLE", "SLEEVE LENGTH", "INSEAM (SHORT)", "INSEAM (REGULAR)",
+        "INSEAM (TALL)",
+      ];
+      return measurementLabels.includes(s.trim().toUpperCase());
+    };
+
+    // Extract first row and first column (excluding headers)
+    const firstRow = tableData[0].slice(1);
+    const firstColumn = tableData.slice(1).map((row) => row[0]);
+
+    // Count size labels in first row and first column
+    const sizeCountInFirstRow = firstRow.filter(isSizeLabel).length;
+    const sizeCountInFirstColumn = firstColumn.filter(isSizeLabel).length;
+
+    // Decide if table needs to be transposed
+    let sizesInFirstRow = sizeCountInFirstRow > sizeCountInFirstColumn;
+
+    if (sizesInFirstRow) {
+      // Transpose the table
+      tableData = transpose(tableData);
+
+      // Swap rows and cols
+      [rows, cols] = [cols, rows];
+    }
+
+    // Return processed table
     return {
       rows,
       cols,
       data: tableData,
     };
   });
- 
+
+  // Extract titles if necessary
   const titles = titleBlocks.map((titleBlock) => {
     const titleChildrenIds = titleBlock.Relationships.flatMap((rel) => rel.Ids);
     return titleChildrenIds.map((id) => wordMap[id] || "").join(" ");
@@ -120,9 +279,15 @@ function processTextractData(blocks) {
   // Filter out null values (tables that couldn't be processed)
   return {
     tables: tables.filter((table) => table !== null),
-    titles,  // Return table titles
+    titles, // Return table titles
   };
 }
+
+// Helper function to transpose a matrix
+function transpose(matrix) {
+  return matrix[0].map((col, i) => matrix.map((row) => row[i]));
+}
+
 
 function mapTablesToModels(allTablesData) {
   // Initialize an array to hold all sizing charts
