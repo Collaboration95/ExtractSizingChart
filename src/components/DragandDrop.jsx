@@ -124,6 +124,82 @@ function processTextractData(blocks) {
   };
 }
 
+function mapTablesToModels(allTablesData) {
+  // Initialize an array to hold all sizing charts
+  const sizingCharts = [];
+
+  allTablesData.forEach((tableData, index) => {
+    const { tables, titles } = tableData;
+
+    // Create a new SizingChart
+    const sizingChart = {
+      id: index + 1, // You might want to use a more robust ID system
+      sizes: [],
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    tables.forEach((table, tableIndex) => {
+      const { data } = table;
+
+      // Check if the table has enough rows and columns
+      if (data.length < 2 || data[0].length < 2) {
+        console.warn(`Table at index ${tableIndex} does not have enough data.`);
+        return;
+      }
+
+      // Assume the first row contains measurement labels
+      const headers = data[0];
+      const measurementLabels = headers.slice(1); // Skip the first header (Size label)
+
+      // Process each row after the header
+      for (let i = 1; i < data.length; i++) {
+        const row = data[i];
+        const sizeLabel = row[0]; // The size label (e.g., "S", "M", "L")
+
+        // Create a new Size
+        const size = {
+          id: sizingChart.sizes.length + 1,
+          label: sizeLabel,
+          measurements: [],
+          sizingChartId: sizingChart.id,
+        };
+
+        // Process each measurement in the row
+        for (let j = 1; j < row.length; j++) {
+          const value = parseFloat(row[j]);
+          const label = measurementLabels[j - 1];
+
+          // Skip if value is not a number
+          if (isNaN(value)) {
+            console.warn(`Invalid measurement value at row ${i}, column ${j}`);
+            continue;
+          }
+
+          // Create a new Measurement
+          const measurement = {
+            id: size.measurements.length + 1,
+            label: label,
+            value: value,
+            unit: "cm", // You may need to determine the unit dynamically
+            sizeId: size.id,
+          };
+
+          size.measurements.push(measurement);
+        }
+
+        sizingChart.sizes.push(size);
+      }
+    });
+
+    sizingCharts.push(sizingChart);
+  });
+
+  return sizingCharts;
+}
+
+
+
 const DragAndDropImage = () => {
   const [tableInfo,setTableInfo] = useState(null);
   const [imagePreviews, setImagePreviews] = useState([]);
@@ -148,50 +224,6 @@ const DragAndDropImage = () => {
     event.preventDefault();
   };
 
-  //   if (!selectedFiles) return;
-
-  //   const formData = new FormData();
-
-  //   // Append all selected files to FormData
-  //   selectedFiles.forEach((file) => {
-  //     formData.append("images", file); // 'images' is the key for sending multiple files
-  //   });
-
-  //   fetch("api/upload/", {
-  //     method: "POST",
-  //     body: formData, // FormData will contain the images
-  //   })
-  //     .then(async (response) => {
-  //       if (response.ok) {
-  //         console.log("Images uploaded successfully");
-  //         addNotification("Images uploaded successfully", "success"); 
-  //         return response.json();
-  //       } else {
-  //         console.error("Image upload failed");
-  //         throw new Error("Image upload failed");
-  //       }
-  //     })
-  //     .then((data) => {
-  //       addNotification("Info Received from cloud", "success");
-  //       console.log("Data received from cloud is ", data);
-  //       let allTablesData = data.results.map((result) => processTextractData(result.tableData.Blocks));
-  //       console.log("allTablesData is ", allTablesData);
-  //       // console.log("allTablesData is ", allTablesData);
-
-  //       // You will now have both tables and titles
-  //       let flattenedTablesData = allTablesData.map(data => data.tables).flat();
-  //       let allTitlesData = allTablesData.map(data => data.titles).flat();
-
-  //       setTableData(flattenedTablesData);
-  //       setTitlesData(allTitlesData);
-  //       setTableInfo(allTablesData)
-
-  //     })
-  //     .catch((error) => {
-  //       console.error("Error uploading images:", error);
-  //       addNotification("Error uploading images", "error");
-  //     });
-  // };
   const handleUpload = async () => {
     if (!selectedFiles) return;
 
@@ -201,10 +233,16 @@ const DragAndDropImage = () => {
       addNotification("Info Received from cloud", "success");
       console.log("Data received from cloud is ", data);
 
+      data.results.map((result) => {
+        console.log("result is ", result);
+      });
       const allTablesData = data.results.map((result) =>
-        processTextractData(result.tableData.Blocks)
+          processTextractData(result.tableData.Blocks)
       );
       console.log("allTablesData is ", allTablesData);
+
+      const sizingCharts = mapTablesToModels(allTablesData);
+      console.log("Sizing Charts:", sizingCharts);
 
       let flattenedTablesData = allTablesData.map((data) => data.tables).flat();
       let allTitlesData = allTablesData.map((data) => data.titles).flat();
